@@ -1,0 +1,165 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: IAM Roles for Sagemaker usage
+
+Parameters:
+  DeploymentName:
+    Description: Name of this Sagemaker deployment (to isolate multiple deployments)
+    Type: String
+
+Resources:
+  SagemakerUserRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: !Ref AWS::AccountId
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSageMakerReadOnly
+      Path: /
+      RoleName: !Sub ${AWS::StackName}-notebook-user-role
+      Policies:
+      - PolicyName: ManageSagemakerNotebooks
+        PolicyDocument:
+          Version: 2012-10-17
+          Statement:
+          - Sid: SagemakerAccessToCreateNotebooks
+            Effect: Allow
+            Action: sagemaker:CreateNotebookInstance
+            Resource: !Sub 'arn:aws:sagemaker:${AWS::Region}:${AWS::AccountId}:notebook-instance/*'
+            Condition:
+              StringEquals: # to enforce tagging on the create call
+                'aws:RequestTag/DeploymentName': !Ref DeploymentName
+
+          - Sid: SagemakerAccessToManageNotebooks
+            Effect: Allow
+            Action:
+              - sagemaker:CreateNotebookInstance
+              - sagemaker:CreatePresignedNotebookInstanceUrl
+              - sagemaker:DeleteNotebookInstance
+              - sagemaker:StartNotebookInstance
+              - sagemaker:StopNotebookInstance
+              - sagemaker:UpdateNotebookInstance
+            Resource:
+              - !Sub 'arn:aws:sagemaker:${AWS::Region}:${AWS::AccountId}:notebook-instance/*'
+            Condition:
+              StringEquals: # to prevent access to other deployments
+                'sagemaker:ResourceTag/DeploymentName': !Ref DeploymentName
+
+          - Sid: IamAccessToPassRoleToSagemaker
+            Effect: Allow
+            Action:
+              - iam:PassRole
+            Resource:
+              - !GetAtt NotebookInstanceRole.Arn
+            Condition:
+              StringEquals:
+                iam:PassedToService: sagemaker.amazonaws.com
+
+          - Sid: CloudFormationAccessToCreateAndDebugNotebookInstanceStacks
+            Effect: Allow
+            Action:
+              - cloudformation:CreateStack
+              - cloudformation:DeleteStack
+              - cloudformation:UpdateStack
+              - cloudformation:Describe*
+              - cloudformation:Get*
+              - cloudformation:List*
+            Resource:
+              - !Sub arn:aws:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/sagemaker-notebook-instance-${DeploymentName}*
+
+          - Sid: Ec2AccessToManageNotebookInstanceSecurityGroups
+            Effect: Allow
+            Action:
+              - ec2:AuthorizeSecurityGroupEgress
+              - ec2:AuthorizeSecurityGroupIngress
+              - ec2:DeleteSecurityGroup
+              - ec2:RevokeSecurityGroupEgress
+              - ec2:RevokeSecurityGroupIngress
+            Resource:
+              - !Sub arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:security-group/*
+            Condition:
+              StringLike:
+                ec2:ResourceTag/Name: !Sub 'sagemaker-notebook-instance-${DeploymentName}-*'
+
+          - Sid: OtherRequiredAccessThatCannotBeLimited
+            Effect: Allow
+            Action:
+              # For setting up VPC connectivity
+              - ec2:CreateNetworkInterface
+              - ec2:AttachNetworkInterface
+              - ec2:ModifyNetworkInterfaceAttribute
+              - ec2:DeleteNetworkInterface
+              - ec2:DescribeAvailabilityZones
+              - ec2:DescribeInternetGateways
+              - ec2:DescribeNetworkInterfaces
+              - ec2:DescribeSecurityGroups
+              - ec2:DescribeSubnets
+              - ec2:DescribeVpcs
+
+              # For using CloudFormation console
+              - cloudformation:ListStacks
+
+              # For creating a security group for the notebook
+              - ec2:CreateSecurityGroup
+            Resource: '*'
+
+  NotebookInstanceRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: sagemaker.amazonaws.com
+            Action: sts:AssumeRole
+      Path: /
+      RoleName: !Sub ${AWS::StackName}-notebook-instance-role
+      Policies:
+      - PolicyName: SagemakerBasicActions
+        PolicyDocument:
+          Version: 2012-10-17
+          Statement:
+          - Sid: CloudWatchLogsAccess
+            Effect: Allow
+            Action:
+              - logs:CreateLogGroup
+              - logs:CreateLogStream
+              - logs:DescribeLogStreams
+              - logs:PutLogEvents
+              - logs:GetLogEvents"
+            Resource:
+              - !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/sagemaker/*'
+              - !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-stream:*'
+          - Sid: CloudWatchMetricsAccess
+            Effect: Allow
+            Action:
+              - cloudwatch:PutMetricData
+            Resource: '*'
+          - Sid: S3Access
+            Effect: Allow
+            Action:
+              - s3:DeleteObject
+              - s3:GetObject
+              - s3:ListBucket
+              - s3:PutObject
+            Resource: # Modify these as required
+              - arn:aws:s3:::ew1-sagemaker-input
+              - arn:aws:s3:::ew1-sagemaker-input/*
+
+Outputs:
+  SagemakerUserRoleArn:
+    Description: The ARN of the IAM role users can use to manage their own notebook instances.
+    Value: !GetAtt SagemakerUserRole.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-user-role-arn'
+
+  NotebookInstanceRoleArn:
+    Description: The ARN of the IAM role to use for the notebook instances.
+    Value: !GetAtt NotebookInstanceRole.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-notebook-role-arn'

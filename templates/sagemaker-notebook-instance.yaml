@@ -1,0 +1,68 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Amazon Sagemaker notebook instance.
+
+Parameters:
+  DeploymentName:
+    Description: Name of the Sagemaker deployment to launch this notebook to
+    Type: String
+
+  InstanceType:
+    Description: The type of ML compute instance to launch for the notebook
+    Type: String
+    Default: ml.t2.medium
+    AllowedValues:
+      - ml.t2.medium
+      - ml.t2.large
+      - ml.t2.xlarge
+      - ml.t2.2xlarge
+      - ml.m5.large
+      - ml.m5.xlarge
+      - ml.m5.2xlarge
+      - ml.m5.4xlarge
+      - ml.m5.12xlarge
+      - ml.m5.24xlarge
+      - ml.m4.xlarge
+      - ml.m4.4xlarge
+      - ml.m4.10xlarge
+      - ml.m4.16xlarge
+      - ml.c5.large
+      - ml.c5.xlarge
+      - ml.c5.2xlarge
+      - ml.c5.4xlarge
+      - ml.c5.9xlarge
+      - ml.c5.18xlarge
+      - ml.c4.large
+      - ml.c4.xlarge
+      - ml.c4.2xlarge
+      - ml.c4.4xlarge
+      - ml.c4.8xlarge
+      - ml.p3.2xlarge
+      - ml.p3.8xlarge
+      - ml.p3.16xlarge
+      - ml.p2.xlarge
+      - ml.p2.8xlarge
+      - ml.p2.16xlarge
+
+Resources:
+  NotebookInstance:
+    Type: "AWS::SageMaker::NotebookInstance"
+    Properties:
+      DirectInternetAccess: Enabled
+      SubnetId: !ImportValue infra-vpc-sn-adhoc-a
+      NotebookInstanceName: !Sub '${AWS::StackName}'
+      InstanceType: !Ref InstanceType
+      SecurityGroupIds:
+        - !Ref NotebookInstanceSg
+      RoleArn:
+        Fn::ImportValue: !Sub 'sagemaker-iam-${DeploymentName}-notebook-role-arn'
+      Tags:
+        - { Key: Name, Value: !Sub '${AWS::StackName}' }
+
+  NotebookInstanceSg:
+    Type: "AWS::EC2::SecurityGroup"
+    Properties:
+      GroupDescription: !Sub 'Group of Sagemaker notebook ${AWS::StackName}'
+      GroupName: !Sub ${AWS::StackName}-sg
+      VpcId: !ImportValue infra-vpc-VpcId
+      Tags:
+        - { Key: Name, Value: !Sub '${AWS::StackName}-sg' }
