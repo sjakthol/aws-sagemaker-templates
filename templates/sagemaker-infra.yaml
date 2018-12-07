@@ -1,0 +1,24 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Infra level resources for SageMaker usage
+
+Parameters:
+  DeploymentName:
+    Description: Name of this SageMaker deployment (to isolate multiple deployments)
+    Type: String
+
+Resources:
+  NotebookInstanceSg:
+    Type: "AWS::EC2::SecurityGroup"
+    Properties:
+      GroupDescription: !Sub 'Group of SageMaker notebook instances of ${AWS::StackName}'
+      GroupName: !Sub ${AWS::StackName}-sg
+      VpcId: !ImportValue infra-vpc-VpcId
+      Tags:
+        - { Key: Name, Value: !Sub '${AWS::StackName}-notebook-sg' }
+
+Outputs:
+  NotebookInstanceSg:
+    Description: The ID of the security group to use for the notebook instances.
+    Value: !Ref NotebookInstanceSg
+    Export:
+      Name: !Sub '${AWS::StackName}-notebook-sg'

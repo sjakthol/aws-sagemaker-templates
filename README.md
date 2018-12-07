@@ -2,7 +2,7 @@ CloudFormation templates for setting up Amazon SageMaker notebook instances.
 
 ## Features
 
-* CloudFormation templates for setting up infrastructure needed to use Amazon Sagemaker
+* CloudFormation templates for setting up infrastructure needed to use Amazon SageMaker
   securely in a multi-tenant environment.
 * CloudFormation templates that allow users to manage their own Amazon SageMaker
   resources in a secure fashion.
@@ -14,15 +14,27 @@ CloudFormation templates for setting up Amazon SageMaker notebook instances.
 ```bash
 # Once as Admin
 make create-sagemaker-iam
+make create-sagemaker-infra
 
-# Once as with the role created in the iam stack
+# As user
 make create-sagemaker-notebook-instance
 ```
 
-This creates a default deployment of the setup.
+This creates a default deployment of the setup. To tear this down, do the following:
+
+```bash
+# As user / Admin
+make delete-sagemaker-notebook-instance
+
+# As Admin
+make delete-sagemaker-infra
+make delete-sagemaker-iam
+```
 
 ### Multi-Tenant Deployment
-More complex multi-tenant deployment can be done as follows:
+It's possible to deploy multiple isolated deployments of these stacks
+as follows:
+
 ```bash
 make create-sagemaker-iam DEPLOYMENT=engineers
 make create-sagemaker-iam DEPLOYMENT=scientists
@@ -43,15 +55,6 @@ make create-sagemaker-notebook-instance DEPLOYMENT=scientists
 In this kind of a setup engineers are not able to access the SageMaker
 resource of the scientists and vice versa.
 
-### Cleanup
-To tear down the resources, run the following (set DEPLOYMENT variable as
-in the earlier or omit it to clean the default deployment):
-
-```bash
-make delete-sagemaker-notebook-instance
-make delete-sagemaker-iam
-```
-
 ## Implementation
 
 The templates in this repository can be divided into two categories:
@@ -65,8 +68,13 @@ At the moment this repository includes the following CloudFormation templates:
 
 * IAM - Locked down IAM roles for multi-tenant deployment of Amazon SageMaker
   in a single AWS account.
+* Infra - Common resources needed to run SageMaker notebooks.
 * Notebook Instance - Basic template for setting up an Amazon SageMaker
   notebook instance.
+
+The templates are built on top of [sjakthol/aws-account-infra](https://github.com/sjakthol/aws-account-infra)
+templates so you will need to deploy a VPC and subnets from there to use these
+templates as is.
 
 ### IAM
 

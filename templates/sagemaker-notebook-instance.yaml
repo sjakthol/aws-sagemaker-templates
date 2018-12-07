@@ -1,9 +1,9 @@
 AWSTemplateFormatVersion: 2010-09-09
-Description: Amazon Sagemaker notebook instance.
+Description: Amazon SageMaker notebook instance.
 
 Parameters:
   DeploymentName:
-    Description: Name of the Sagemaker deployment to launch this notebook to
+    Description: Name of the SageMaker deployment to launch this notebook to
     Type: String
 
   InstanceType:
@@ -52,17 +52,8 @@ Resources:
       NotebookInstanceName: !Sub '${AWS::StackName}'
       InstanceType: !Ref InstanceType
       SecurityGroupIds:
-        - !Ref NotebookInstanceSg
+        - Fn::ImportValue: !Sub 'sagemaker-${DeploymentName}-infra-notebook-sg'
       RoleArn:
-        Fn::ImportValue: !Sub 'sagemaker-iam-${DeploymentName}-notebook-role-arn'
+        Fn::ImportValue: !Sub 'sagemaker-${DeploymentName}-iam-notebook-role-arn'
       Tags:
         - { Key: Name, Value: !Sub '${AWS::StackName}' }
-
-  NotebookInstanceSg:
-    Type: "AWS::EC2::SecurityGroup"
-    Properties:
-      GroupDescription: !Sub 'Group of Sagemaker notebook ${AWS::StackName}'
-      GroupName: !Sub ${AWS::StackName}-sg
-      VpcId: !ImportValue infra-vpc-VpcId
-      Tags:
-        - { Key: Name, Value: !Sub '${AWS::StackName}-sg' }
